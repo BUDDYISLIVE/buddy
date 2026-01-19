@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Mini Photoshop Web App</title>
+<style>
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #1e1e1e;
+    color: #fff;
+}
+
+header {
+    background: #111;
+    padding: 10px;
+    text-align: center;
+    font-size: 20px;
+}
+
+#toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 10px;
+    background: #2a2a2a;
+}
+
+button, input[type=range] {
+    background: #444;
+    color: #fff;
+    border: none;
+    padding: 6px 10px;
+    cursor: pointer;
+}
+
+button:hover {
+    background: #666;
+}
+
+label {
+    font-size: 12px;
+}
+
+#editor {
+    display: flex;
+    justify-content: center;
+    padding: 10px;
+}
+
+canvas {
+    background: #fff;
+    cursor: crosshair;
+    max-width: 100%;
+}
+</style>
+</head>
+
+<body>
+
+<header>Mini Photoshop – Web Version</header>
+
+<div id="toolbar">
+    <input type="file" id="upload" accept="image/*">
+
+    <button onclick="setMode('draw')">Brush</button>
+    <button onclick="setMode('erase')">Eraser</button>
+
+    <label>Brightness
+        <input type="range" min="-100" max="100" value="0" onchange="applyFilter()">
+    </label>
+
+    <label>Contrast
+        <input type="range" min="-100" max="100" value="0" onchange="applyFilter()">
+    </label>
+
+    <button onclick="grayscale()">Grayscale</button>
+    <button onclick="blurImage()">Blur</button>
+    <button onclick="undo()">Undo</button>
+    <button onclick="download()">Download</button>
+</div>
+
+<div id="editor">
+    <canvas id="canvas" width="800" height="500"></canvas>
+</div>
+
+<script>
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+
+let img = new Image();
+let drawing = false;
+let mode = "draw";
+let history = [];
+
+function saveState() {
+    history.push(canvas.toDataURL());
+    if (history.length > 20) history.shift();
+}
+
+document.getElementById("upload").onchange = e => {
+    const file = e.target.files[0];
+    img.src = URL.createObjectURL(file);
+    img.onload = () => {
+        canvas.width = img.width;
+        canvas.height = img.height;
+        ctx.drawImage(img, 0, 0);
+        saveState();
+    };
+};
+
+canvas.onmousedown = () => drawing = true;
+canvas.onmouseup = () => {
+    drawing = false;
+    ctx.beginPath();
+    saveState();
+};
+
+canvas.onmousemove = e => {
+    if (!drawing) return;
+
+    ctx.lineWidth = mode === "erase" ? 20 : 4;
+    ctx.lineCap = "round";
+    ctx.strokeStyle = mode === "erase" ? "#fff" : "#000";
+
+    ctx.lineTo(e.offsetX, e.offsetY);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(e.offsetX, e.offsetY);
+};
+
+function setMode(m) {
+    mode = m;
+}
+
+function applyFilter() {
+    const b = document.querySelectorAll("input[type=range]")[0].value;
+    const c = document.querySelectorAll("input[type=range]")[1].value;
+    ctx.filter = `brightness(${100 + +b}%) contrast(${100 + +c}%)`;
+    ctx.drawImage(canvas, 0, 0);
+    ctx.filter = "none";
+}
+
+function grayscale() {
+    ctx.filter = "grayscale(100%)";
+    ctx.drawImage(canvas, 0, 0);
+    ctx.filter = "none";
+    saveState();
+}
+
+function blurImage() {
+    ctx.filter = "blur(3px)";
+    ctx.drawImage(canvas, 0, 0);
+    ctx.filter = "none";
+    saveState();
+}
+
+function undo() {
+    if (history.length < 2) return;
+    history.pop();
+    let img = new Image();
+    img.src = history[history.length - 1];
+    img.onload = () => ctx.drawImage(img, 0, 0);
+}
+
+function download() {
+    const link = document.createElement("a");
+    link.download = "edited-image.png";
+    link.href = canvas.toDataURL();
+    link.click();
+}
+</script>
+
+</body>
+</html>
